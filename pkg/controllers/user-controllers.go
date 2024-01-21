@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"caching-user-app/globals"
 	"caching-user-app/models"
 	"caching-user-app/pkg/database"
 	"caching-user-app/pkg/transformator"
@@ -36,10 +37,29 @@ func GetUsers(ctx *gin.Context) {
 }
 
 func GetUser(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	cachedUser, isFound := globals.Cache.Get(id)
+
+	if isFound {
+		respondWithUser(ctx, cachedUser, true)
+		return
+	}
+
+	lock := globals.Cache.LockForKey(id)
+	lock.Lock()
+	defer lock.Unlock()
+
+	cachedUser, isFound = globals.Cache.Get(id)
+
+	if isFound {
+		respondWithUser(ctx, cachedUser, true)
+		return
+	}
+
+	db := database.GetDatabaseConnection()
 	var user models.User
 
-	id := ctx.Param("id")
-	db := database.GetDatabaseConnection()
 	result := db.First(&user, "id = ?", id)
 
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -47,16 +67,34 @@ func GetUser(ctx *gin.Context) {
 		return
 	}
 
-	userResponse := transformator.ToUserResponse(user)
-
-	if result.Error == nil {
-		ctx.JSON(http.StatusOK, userResponse)
+	if result.Error != nil {
+		ctx.JSON(
+			http.StatusInternalServerError,
+			gin.H{"error": result.Error.Error()},
+		)
 		return
 	}
 
+	userResponse := transformator.ToUserResponse(user)
+	globals.Cache.Set(id, userResponse)
+
+	respondWithUser(ctx, userResponse, false)
+}
+
+func respondWithUser(
+	ctx *gin.Context,
+	userResponse models.UserResponse,
+	fromCache bool,
+) {
 	ctx.JSON(
-		http.StatusInternalServerError,
-		gin.H{"error": result.Error.Error()},
+		http.StatusOK,
+		struct {
+			models.UserResponse
+			FromCache bool `json:"fromCache"`
+		}{
+			UserResponse: userResponse,
+			FromCache:    fromCache,
+		},
 	)
 }
 
@@ -84,6 +122,6 @@ func CreateUser(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusCreated,
-		gin.H{"message": "User created successfully", "user": userResponse},
+		gin.H{"user": userResponse},
 	)
 }
