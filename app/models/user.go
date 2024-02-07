@@ -14,10 +14,8 @@ type User struct {
 }
 
 type UserResponse struct {
-	ID        string     `json:"id"`
+	User
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	DeletedAt *time.Time `json:"deletedAt,omitempty"`
-	Name      string     `json:"name"`
-	Surname   string     `json:"surname"`
 }
