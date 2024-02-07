@@ -1,18 +1,15 @@
 package config
 
 import (
-	"errors"
+	"fmt"
 	"log"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 var config *Config
 
 const (
-	envPath = ".env"
-	port    = "2024"
+	port = "2024"
 )
 
 type Config struct {
@@ -21,18 +18,14 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	errEnv := godotenv.Load(envPath)
-
-	if errEnv != nil {
-		return nil, errors.New("unable to load the environment file")
-	}
-
 	loadedPort := os.Getenv("PORT")
-	loadedDbUrl := os.Getenv("DB_URL")
 
-	if loadedDbUrl == "" {
-		return nil, errors.New("unable to load db url")
-	}
+	loadedDbUrl := fmt.Sprintf(
+		"%s:%s@tcp(db:3306)/%s?charset=utf8mb4&parseTime=True&loc=UTC",
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+	)
 
 	if loadedPort == "" {
 		log.Printf("Set default port %v", port)

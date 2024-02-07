@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  web:
+    container_name: user-cache-app
+    restart: always
+    build:
+      dockerfile: .image/Dockerfile
+      context: .
+    ports:
+      - ${PORT}:${PORT}
+    volumes:
+      - ./app:/usr/src/app
+    command: air cmd/app/main.go -b 0.0.0.0
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    container_name: user-cache-database
+    restart: always
+    image: mysql:latest
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - database-volume:/var/lib/mysql/
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-uroot", "-ppass"]
+      timeout: 20s
+      retries: 10
+volumes:
+  database-volume:
