@@ -36,13 +36,19 @@ func GetUsers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, usersResponse)
 }
 
+func tryResponseWithCachedUser(ctx *gin.Context, id string) bool {
+	cachedUser, isFound := globals.Cache.Get(id)
+	if isFound {
+		responseWithUser(ctx, cachedUser, true)
+		return true
+	}
+	return false
+}
+
 func GetUser(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	cachedUser, isFound := globals.Cache.Get(id)
-
-	if isFound {
-		respondWithUser(ctx, cachedUser, true)
+	if tryResponseWithCachedUser(ctx, id) {
 		return
 	}
 
@@ -50,10 +56,7 @@ func GetUser(ctx *gin.Context) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	cachedUser, isFound = globals.Cache.Get(id)
-
-	if isFound {
-		respondWithUser(ctx, cachedUser, true)
+	if tryResponseWithCachedUser(ctx, id) {
 		return
 	}
 
@@ -78,10 +81,10 @@ func GetUser(ctx *gin.Context) {
 	userResponse := transformator.ToUserResponse(user)
 	globals.Cache.Set(id, userResponse)
 
-	respondWithUser(ctx, userResponse, false)
+	responseWithUser(ctx, userResponse, false)
 }
 
-func respondWithUser(
+func responseWithUser(
 	ctx *gin.Context,
 	userResponse models.UserResponse,
 	fromCache bool,
